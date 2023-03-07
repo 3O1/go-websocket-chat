@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"golang.org/x/net/websocket"
 )
@@ -18,12 +19,23 @@ func NewServer() *Server {
 	}
 }
 
+// handleWSFeed sends data to users subscribed to the feed
+// every 2 seconds a message is broadcasted
+func (s *Server) handleWSFeed(ws *websocket.Conn) {
+	fmt.Println("new incoming connection from client to feed:", ws.RemoteAddr())
+
+	for {
+		payload := fmt.Sprintf("feed data -> %d\n", time.Now().UnixNano())
+		ws.Write([]byte(payload))
+		time.Sleep(time.Second * 2)
+	}
+}
+
 func (s *Server) handleWS(ws *websocket.Conn) {
 	fmt.Println("new incoming connection from client: ", ws.RemoteAddr())
 
 	// mutex in prod
 	s.conns[ws] = true
-
 	s.readLoop(ws)
 }
 
@@ -62,5 +74,6 @@ func main() {
 
 	server := NewServer()
 	http.Handle("/ws", websocket.Handler(server.handleWS))
+	http.Handle("/feed", websocket.Handler(server.handleWSFeed))
 	http.ListenAndServe(":3000", nil)
 }
